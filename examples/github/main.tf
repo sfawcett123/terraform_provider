@@ -2,7 +2,7 @@ terraform {
   required_providers {
     fawcetts = {
       version = "0.2"
-      source  = "fawcetts.com/TEST/fawcetts"
+      source  = "sfawcett123.github.io/github/fawcetts"
     }
   }
 }
