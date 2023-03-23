@@ -7,6 +7,15 @@ terraform {
   }
 }
 
+data "fawcetts" "single" {
+  owner = "sfawcett123"
+  name = "terraform_provider"
+}
+
+output "repos_single" {
+  value = data.fawcetts.single.repositories
+}
+
 data "fawcetts" "all" {
   owner = "sfawcett123"
 }
@@ -14,4 +23,3 @@ data "fawcetts" "all" {
 output "repos" {
   value = data.fawcetts.all.repositories
 }
-
