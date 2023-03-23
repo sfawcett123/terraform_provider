@@ -7,9 +7,11 @@ terraform {
   }
 }
 
-data "fawcetts" "all" {}
+data "fawcetts" "all" {
+  owner = "sfawcett123"
+}
 
 output "repos" {
-  value = data.fawcetts.all.items
+  value = data.fawcetts.all.repositories
 }
 

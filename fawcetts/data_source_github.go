@@ -17,7 +17,11 @@ func dataSourceRepos() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceReposRead,
 		Schema: map[string]*schema.Schema{
-			"items": &schema.Schema{
+			"owner": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"repositories": &schema.Schema{
 				Type:     schema.TypeList,
 				Computed: true,
 				Elem: &schema.Resource{
@@ -42,8 +46,9 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
+	owner := d.Get("owner").(string)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s/repos", "https://api.github.com/users", "sfawcett191"), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s/repos", "https://api.github.com/users", owner), nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -64,7 +69,7 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	Items := flatten(&repos)
 
-	if err := d.Set("items", Items); err != nil {
+	if err := d.Set("repositories", Items); err != nil {
 		return diag.FromErr(err)
 	}
 
