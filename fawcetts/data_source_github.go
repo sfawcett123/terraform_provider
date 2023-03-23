@@ -21,6 +21,10 @@ func dataSourceRepos() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"name": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 			"repositories": &schema.Schema{
 				Type:     schema.TypeList,
 				Computed: true,
@@ -46,9 +50,19 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
-	owner := d.Get("owner").(string)
+	var err error
+	var req *http.Request
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s/repos", "https://api.github.com/users", owner), nil)
+	owner := d.Get("owner").(string)
+	name := d.Get("name").(string)
+
+	if len(name) == 0 {
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/%s/repos", "https://api.github.com/users", owner), nil)
+
+	} else {
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/%s/%s", "https://api.github.com/repos", owner, name), nil)
+	}
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -57,6 +71,19 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	if r.StatusCode != 200 {
+		summary := fmt.Sprintf("Unable to find repository %s/%s", owner, name)
+		detail := fmt.Sprintf("Return code %d using URL %s", r.StatusCode, r.Request.URL)
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  summary,
+			Detail:   detail,
+		})
+
+		return diags
+	}
+
 	defer r.Body.Close()
 
 	repos := make([]map[string]interface{}, 0)
@@ -64,12 +91,17 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	err = json.Unmarshal(body, &repos)
 	if err != nil {
-		return diag.FromErr(err)
+		temp := make(map[string]interface{}, 0)
+		err = json.Unmarshal([]byte(body), &temp)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		err = d.Set("repositories", extract(temp))
+	} else {
+		err = d.Set("repositories", flatten(&repos))
 	}
 
-	Items := flatten(&repos)
-
-	if err := d.Set("repositories", Items); err != nil {
+	if err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -85,16 +117,29 @@ func flatten(repos *[]map[string]interface{}) []interface{} {
 		ois := make([]interface{}, len(*repos), len(*repos))
 
 		for i, m := range *repos {
-			oi := make(map[string]interface{})
-
-			// Pick the bones out of the JSON
-			oi["id"] = m["id"]
-			oi["name"] = m["name"]
-
-			ois[i] = oi
+			ois[i] = pick_bones(m)
 		}
 		return ois
 	}
 
 	return make([]interface{}, 0)
+}
+
+func extract(repos map[string]interface{}) interface{} {
+
+	if repos != nil {
+		ois := make([]interface{}, 1, 1)
+		ois[0] = pick_bones(repos)
+		return ois
+	}
+
+	return make([]interface{}, 0)
+}
+
+func pick_bones(data map[string]interface{}) map[string]interface{} {
+	oi := make(map[string]interface{})
+	oi["id"] = data["id"]
+	oi["name"] = data["name"]
+
+	return oi
 }
