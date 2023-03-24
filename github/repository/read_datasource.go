@@ -1,4 +1,4 @@
-package fawcetts
+package repository
 
 import (
 	"context"
@@ -13,37 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func dataSourceRepos() *schema.Resource {
-	return &schema.Resource{
-		ReadContext: dataSourceReposRead,
-		Schema: map[string]*schema.Schema{
-			"owner": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"repositories": &schema.Schema{
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"id": &schema.Schema{
-							Type:     schema.TypeInt,
-							Computed: true,
-						},
-						"name": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-					},
-				},
-			},
-		},
-	}
-}
+// Whenever  terraform is required to READ the datasource ( data_source.go ) then this is called.
+// which when completed should populate the structure.
 
 func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -53,6 +24,7 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 	var err error
 	var req *http.Request
 
+	// Get any parameters
 	owner := d.Get("owner").(string)
 	name := d.Get("name").(string)
 
@@ -73,6 +45,7 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	if r.StatusCode != 200 {
+		// If our URL does not return 200 as expected then lets play with formating a nice message
 		summary := fmt.Sprintf("Unable to find repository %s/%s", owner, name)
 		detail := fmt.Sprintf("Return code %d using URL %s", r.StatusCode, r.Request.URL)
 		diags = append(diags, diag.Diagnostic{
@@ -86,19 +59,19 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	defer r.Body.Close()
 
-	repos := make([]map[string]interface{}, 0)
-	body, err := ioutil.ReadAll(r.Body)
+	repos := make([]map[string]interface{}, 0) // create a dummy MAP to hold JSON
+	body, err := ioutil.ReadAll(r.Body)        // Read the request body into a string
 
-	err = json.Unmarshal(body, &repos)
-	if err != nil {
+	err = json.Unmarshal(body, &repos) //extract the JSON from the request Body string
+	if err != nil {                    // The extract failed, good chance it didnt return an array so try again but in a flatter format
 		temp := make(map[string]interface{}, 0)
 		err = json.Unmarshal([]byte(body), &temp)
 		if err != nil {
 			return diag.FromErr(err)
 		}
-		err = d.Set("repositories", extract(temp))
+		err = d.Set("repositories", extract(temp)) // Populate the repositories element
 	} else {
-		err = d.Set("repositories", flatten(&repos))
+		err = d.Set("repositories", flatten(&repos)) // Populate the repositories element
 	}
 
 	if err != nil {
@@ -109,37 +82,4 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 	d.SetId(strconv.FormatInt(time.Now().Unix(), 10))
 
 	return diags
-}
-
-func flatten(repos *[]map[string]interface{}) []interface{} {
-
-	if repos != nil {
-		ois := make([]interface{}, len(*repos), len(*repos))
-
-		for i, m := range *repos {
-			ois[i] = pick_bones(m)
-		}
-		return ois
-	}
-
-	return make([]interface{}, 0)
-}
-
-func extract(repos map[string]interface{}) interface{} {
-
-	if repos != nil {
-		ois := make([]interface{}, 1, 1)
-		ois[0] = pick_bones(repos)
-		return ois
-	}
-
-	return make([]interface{}, 0)
-}
-
-func pick_bones(data map[string]interface{}) map[string]interface{} {
-	oi := make(map[string]interface{})
-	oi["id"] = data["id"]
-	oi["name"] = data["name"]
-
-	return oi
 }
