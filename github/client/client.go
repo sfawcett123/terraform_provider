@@ -1,25 +1,28 @@
 package client
 
 import (
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"net/http"
 	"time"
 )
 
-// Create a structurre to pass client information around with
+// Create a structure to pass client information around with
 type Client struct {
 	HostURL    string
-	HTTPClient *http.Client
 	Token      string
+	HTTPClient *http.Client
+	Diags      diag.Diagnostics
 }
 
-const HostURL string = "https://api.github.com/"
+const HostURL string = "https://api.github.com"
 
-func NewClient(token *string) (*Client, error) {
+func NewClient(token *string) *Client {
 
 	c := Client{
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
-		HostURL:    HostURL,
+		HostURL:    HostURL,            // Base Host URL
+		Diags:      diag.Diagnostics{}, // Pointer to Diagnostics, NIL if no error
 	}
 
-	return &c, nil
+	return &c
 }

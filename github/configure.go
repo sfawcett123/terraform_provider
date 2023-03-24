@@ -7,15 +7,10 @@ import (
 	client "terraform-provider-fawcetts/github/client"
 )
 
+// Simply configure the Provider, in this case we will only set up a HTTP client
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	token := d.Get("token").(string) // Get the token value from the input
 
-	var diags diag.Diagnostics
-
-	c, err := client.NewClient(&token) // Connect see client.client.go
-	if err != nil {
-		return nil, diag.FromErr(err)
-	}
-
-	return c, diags
+	c := client.NewClient(&token) // Connect see client.client.go
+	return c, c.Diags
 }

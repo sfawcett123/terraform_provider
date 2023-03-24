@@ -23,6 +23,6 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("token", nil),
 			},
 		},
-		ConfigureContextFunc: providerConfigure,
+		ConfigureContextFunc: providerConfigure, // Call the provider config routine.
 	}
 }

@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"strconv"
 	"time"
 
-	client "terraform-provider-fawcetts/github/client"
+	Client "terraform-provider-fawcetts/github/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -21,50 +20,37 @@ import (
 func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// Get the client information from the resource data
-	client := m.(*client.Client)
+	client := m.(*Client.Client)
 
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
-	var err error
-	var req *http.Request
+	var resp *Client.Response
 
 	// Get any parameters
 	owner := d.Get("owner").(string)
 	name := d.Get("name").(string)
 
 	if len(name) == 0 {
-		req, err = http.NewRequest("GET", fmt.Sprintf("%s/%s/repos", "https://api.github.com/users", owner), nil)
+		resp, diags = client.Get(fmt.Sprintf("users/%s/repos", owner))
 
 	} else {
-		req, err = http.NewRequest("GET", fmt.Sprintf("%s/%s/%s", "https://api.github.com/repos", owner, name), nil)
+		resp, diags = client.Get(fmt.Sprintf("repos/%s/%s", owner, name))
 	}
 
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	r, err := client.HTTPClient.Do(req)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if r.StatusCode != 200 {
-		// If our URL does not return 200 as expected then lets play with formating a nice message
-		summary := fmt.Sprintf("Unable to find repository %s/%s", owner, name)
-		detail := fmt.Sprintf("Return code %d using URL %s", r.StatusCode, r.Request.URL)
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  summary,
-			Detail:   detail,
-		})
-
+	if diags != nil {
 		return diags
 	}
 
-	defer r.Body.Close()
+	// Check for response codes that are not 200 and issue an error
+	diags = resp.HandleStatusCode(fmt.Sprintf("%s:%s", owner, name))
+	if diags != nil {
+		return diags
+	}
+
+	defer resp.Body.Close()
 
 	repos := make([]map[string]interface{}, 0) // create a dummy MAP to hold JSON
-	body, err := ioutil.ReadAll(r.Body)        // Read the request body into a string
+	body, err := ioutil.ReadAll(resp.Body)     // Read the request body into a string
 
 	err = json.Unmarshal(body, &repos) //extract the JSON from the request Body string
 	if err != nil {                    // The extract failed, good chance it didnt return an array so try again but in a flatter format
