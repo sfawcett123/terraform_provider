@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	client "terraform-provider-fawcetts/github/client"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -17,7 +19,9 @@ import (
 // which when completed should populate the structure.
 
 func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Get the client information from the resource data
+	client := m.(*client.Client)
 
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
@@ -39,7 +43,7 @@ func dataSourceReposRead(ctx context.Context, d *schema.ResourceData, m interfac
 		return diag.FromErr(err)
 	}
 
-	r, err := client.Do(req)
+	r, err := client.HTTPClient.Do(req)
 	if err != nil {
 		return diag.FromErr(err)
 	}

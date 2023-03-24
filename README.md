@@ -49,10 +49,10 @@ terraform {
   }
 }
 
-data "fawcetts" "all" {}
+data "fawcetts_repositories" "all" {}
 
 output "repos" {
-  value = data.fawcetts.all.items
+  value = data.fawcetts_repositories.all.repositories
 }```
 
 
